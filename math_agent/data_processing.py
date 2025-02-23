@@ -52,7 +52,8 @@ class MathCorpusProcessor:
         self.data_dir = data_dir
         self.embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-mpnet-base-v2",
-            model_kwargs={"device": "cuda"}
+            model_kwargs={"device": "cpu"},  # Force CPU usage
+            encode_kwargs={"device": "cpu"}   # Force CPU usage for encoding
         )
         self.preprocessor = MathDocumentPreprocessor()
         
@@ -72,39 +73,43 @@ class MathCorpusProcessor:
     
     def process_document(self, file_path: str) -> List[Dict]:
         """Process a single document with math-specific handling."""
-        if file_path.endswith('.pdf'):
-            loader = PDFLoader(file_path)
-        elif file_path.endswith('.txt'):
-            loader = TextLoader(file_path)
-        else:
+        try:
+            if file_path.endswith('.pdf'):
+                loader = PyPDFLoader(file_path)
+            elif file_path.endswith('.txt'):
+                loader = TextLoader(file_path)
+            else:
+                logger.warning(f"Unsupported file type: {file_path}")
+                return []
+                
+            documents = loader.load()
+            processed_docs = []
+            
+            for doc in documents:
+                processed = self.preprocessor.preprocess_text(doc.page_content)
+                doc.page_content = processed["text"]
+                doc.metadata.update(processed["metadata"])
+                processed_docs.append(doc)
+            
+            text_splitter = self.create_math_splitter()
+            split_docs = text_splitter.split_documents(processed_docs)
+            return split_docs  # Return list of documents instead of FAISS object
+                
+        except Exception as e:
+            logger.error(f"Error processing document {file_path}: {str(e)}")
             return []
-            
-        documents = loader.load()
-        processed_docs = []
         
-        for doc in documents:
-            processed = self.preprocessor.preprocess_text(doc.page_content)
-            doc.page_content = processed["text"]
-            doc.metadata.update(processed["metadata"])
-            processed_docs.append(doc)
-            
-        return processed_docs
-    
     def process_documents(self):
         """Process all documents in the data directory."""
-        text_splitter = self.create_math_splitter()
         all_documents = []
         
         for file in os.listdir(self.data_dir):
             file_path = os.path.join(self.data_dir, file)
-            processed_docs = self.process_document(file_path)
-            all_documents.extend(processed_docs)
-            
-        texts = text_splitter.split_documents(all_documents)
+            documents = self.process_document(file_path)
+            all_documents.extend(documents)
         
-        # Create vector store with enhanced math metadata
+        # Remove metadata_keys parameter as it's not supported
         return FAISS.from_documents(
-            texts,
-            self.embeddings,
-            metadata_keys=["formula_count", "has_equations", "formulas"]
+            all_documents,
+            self.embeddings
         )

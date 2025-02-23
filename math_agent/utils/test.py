@@ -1,24 +1,22 @@
-from langchain.chains import RetrievalQA
-from langchain.llms import OpenAI
+from langchain.chains import RetrievalQA, LLMChain
 from langchain.document_loaders import WikipediaLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from ..retriever import CustomChatModel
 import wikipedia
 import os
 
-# Set your OpenAI API key
-os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
 
-def process_docs(question):
+def process_docs(question, model_url: str = "http://localhost:8000"):
+    # Initialize custom model
+    llm = CustomChatModel(base_url=model_url)
+    
     # Generate search query from the question
     prompt_template = """Given the following question, generate a concise search query to find relevant Wikipedia articles.
     Question: {question}
     Search Query:"""
     prompt = PromptTemplate.from_template(prompt_template)
-    llm = OpenAI(temperature=0)
     chain = LLMChain(llm=llm, prompt=prompt)
     search_query = chain.run(question).strip()
     
@@ -31,9 +29,8 @@ def process_docs(question):
         search_results = []
     
     # Load the top 3 Wikipedia pages
-    top_titles = search_results[:3]
     docs = []
-    for title in top_titles:
+    for title in search_results[:3]:
         try:
             loader = WikipediaLoader(query=title, load_max_docs=1)
             docs.extend(loader.load())
@@ -45,28 +42,19 @@ def process_docs(question):
     texts = text_splitter.split_documents(docs)
     
     # Create a vector store for similarity search
-    embeddings = OpenAIEmbeddings()
+    from ..data_processing import MathCorpusProcessor
+    embeddings = MathCorpusProcessor("").embeddings
     db = FAISS.from_documents(texts, embeddings)
     return db.as_retriever()
 
-
-def rag_agent(question):
-    retriever = process_docs(question)
-    qa = RetrievalQA.from_chain_type(
-        llm=OpenAI(),
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True
-    )
-    result = qa({"query": question})
-    return result["result"], result["source_documents"]
-
-def rag_agent_with_other_llm(question):
-    retriever = process_docs(question)
+def rag_agent(question, model_url: str = "http://localhost:8000"):
+    """Use CustomChatModel instead of OpenAI"""
+    retriever = process_docs(question, model_url)
+    llm = CustomChatModel(base_url=model_url)
     
     qa = RetrievalQA.from_chain_type(
-        llm=vllm_llm,  # or custom_llm
-        chain_type="stuff",
+        llm=llm,
+        chain_type="stuff", 
         retriever=retriever,
         return_source_documents=True
     )

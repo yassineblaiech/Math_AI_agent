@@ -1,24 +1,58 @@
 from langchain.retrievers import EnsembleRetriever, BM25Retriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
 from langchain.vectorstores import FAISS
-from langchain.chat_models import ChatOpenAI
 from typing import List, Dict, Optional
 import numpy as np
+import torch
+from langchain.base_language import BaseLanguageModel
+from langchain.llms import BaseLLM
+from langchain.chat_models.base import BaseChatModel
+from langchain.schema import AIMessage, ChatMessage, HumanMessage, SystemMessage
+
+class CustomChatModel(BaseChatModel):
+    """Custom chat model that forwards requests to local FastAPI endpoint."""
+    
+    def __init__(self, base_url: str):
+        """Initialize with base URL for API endpoint."""
+        super().__init__()
+        self._base_url = base_url
+
+    @property
+    def _llm_type(self) -> str:
+        """Return identifier for the LLM type"""
+        return "custom_chat_model"
+        
+    def _generate(self, messages, stop=None, run_manager=None):
+        """Generate response from messages using FastAPI endpoint."""
+        import requests
+        
+        # Extract the text from the last human message
+        text = messages[-1].content if messages else ""
+        
+        # Forward to local API using /ask endpoint instead of /generate
+        response = requests.post(
+            f"{self._base_url}/ask",
+            json={"text": text, "max_tokens": 512}
+        )
+        response.raise_for_status()
+        
+        # Return AIMessage with the generated text
+        return AIMessage(content=response.json()["answer"])
 
 class MathRetriever:
     def __init__(self, vector_store: FAISS, model_url: str = "http://localhost:8000"):
         self.vector_store = vector_store
-        self.llm = ChatOpenAI(
-            openai_api_base=model_url,
-            model_name="mistralai/Mistral-7B-Instruct-v0.1"
-        )
         
-        # Initialize BM25 retriever for hybrid search
-        self.bm25_retriever = BM25Retriever.from_documents(
-            self.vector_store.get_all_documents()
-        )
+        # Use similarity_search to get all documents instead of get_all_documents
+        all_docs = self.vector_store.similarity_search("", k=10000)  # Get all docs
         
-        # Initialize LLM chain extractor for document compression
+        # Initialize BM25 retriever with documents
+        self.bm25_retriever = BM25Retriever.from_documents(all_docs)
+        
+        # Use custom chat model instead of ChatOpenAI
+        self.llm = CustomChatModel(base_url=model_url)
+        
+        # Initialize other components
         self.compressor = LLMChainExtractor.from_llm(self.llm)
         
     def hybrid_search(self, query: str, k: int = 5, 
