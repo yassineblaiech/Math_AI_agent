@@ -12,16 +12,18 @@ from dotenv import load_dotenv
 from pathlib import Path
 import logging
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-TEST_DATA_DIR = ROOT_DIR / "test_data"
-if not TEST_DATA_DIR.exists():
-    TEST_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Created test data directory at {TEST_DATA_DIR}")
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
+TEST_DATA_DIR = ROOT_DIR / "test_data"
+if not TEST_DATA_DIR.exists():
+    TEST_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Created test data directory at {TEST_DATA_DIR}")
+    
 # Get the project root directory and .env file path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 print ('root dir is',ROOT_DIR)
