@@ -46,29 +46,76 @@ final_score = vector_weight * vector_score + (1 - vector_weight) * bm25_score
 
 ### Requirements
 - Python 3.9+
-- FAISS (CPU/GPU version)
-- CUDA 11.7+ (for GPU acceleration)
+- Git
+- Visual Studio Build Tools (for FAISS installation)
+- CUDA 11.7+ (optional, for GPU acceleration)
 
+### Setup Steps
+
+1. **Clone the Repository**
 ```bash
-# Create virtual environment
-python -m venv math_rag_env
-source math_rag_env/bin/activate
-
-# Install core dependencies
-pip install -r requirements.txt
-
-# Install specialized packages
-pip install faiss-cpu sentence-transformers transformers
+git clone https://github.com/yourusername/math_agent.git
+cd math_agent
 ```
 
-## Environment Setup
+2. **Create Virtual Environment**
 ```bash
-# .env.example
-MODEL_PATH="deepseek-ai/deepseek-math-7b-r"
-EMBEDDING_MODEL="sentence-transformers/all-mpnet-base-v2"
-FAISS_INDEX_PATH="/path/to/faiss_index"
-BM25_INDEX_PATH="/path/to/bm25_index"
+# Using venv
+python -m venv .venv
+
+# Activate virtual environment (Windows)
+.venv\Scripts\activate
 ```
+
+3. **Install Dependencies**
+```bash
+# Install PyTorch first (CPU version)
+pip install torch torchvision torchaudio
+
+# Install core requirements
+pip install -e .
+
+```
+
+4. **Environment Configuration**
+```bash
+# Create .env file
+copy .env.example .env
+
+# Edit .env with your settings
+notepad .env
+```
+
+Example `.env` configuration:
+```ini
+DEEPSEEK_API_KEY=your_deepseek_api_key
+HF_API_KEY=your_huggingface_api_key
+MODEL_PATH=deepseek-ai/deepseek-math-7b-r
+EMBEDDING_MODEL=sentence-transformers/all-mpnet-base-v2
+FAISS_INDEX_PATH=./data/faiss_index
+BM25_INDEX_PATH=./data/bm25_index
+```
+
+5. **Verify Installation**
+```bash
+# Run tests
+python -m pytest tests/
+
+# Start the API server
+uvicorn math_agent.test_fastapi:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Troubleshooting
+
+- If FAISS installation fails:
+  ```bash
+  # Try installing wheel directly
+  pip install --no-cache-dir faiss-cpu
+  ```
+
+- If you encounter DLL load errors:
+  1. Install Visual C++ Redistributable
+  2. Add Python Scripts directory to PATH
 
 ## Usage Examples
 
@@ -127,3 +174,4 @@ curl -X POST "http://localhost:8000/ask" \
 3. Commit changes (git commit -am 'Add new feature')
 4. Push to branch (git push origin feature/improvement)
 5. Open Pull Request
+````
