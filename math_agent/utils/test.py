@@ -9,6 +9,9 @@ import os
 from openai import OpenAI
 from langchain_community.document_loaders import WikipediaLoader
 from langchain_community.vectorstores import FAISS
+from pathlib import Path
+from dotenv import load_dotenv
+
 
 def get_clean_env_var(var_name: str) -> str:
     """Get environment variable with proper encoding handling."""
@@ -22,12 +25,25 @@ def get_clean_env_var(var_name: str) -> str:
     return None
 
 def process_docs(question, model_url: str = "http://localhost:8000"):
-    # Get HF API key first
+    """Process documents for RAG retrieval"""
+    # Load environment variables first
+    env_path = get_clean_env_var("RAGENVPATH")
+    if not env_path:
+        raise ValueError("RAGENVPATH environment variable not set")
+    
+    env_path = Path(env_path)
+    if not env_path.exists():
+        raise FileNotFoundError(f".env file not found at {env_path}")
+    
+    # Load the environment variables from .env
+    if not load_dotenv(dotenv_path=env_path):
+        raise ValueError("Failed to load environment variables from .env file")
+    
+    # Now get API keys after loading .env
     hf_api_key = get_clean_env_var("HF_API_KEY")
     if not hf_api_key:
         raise ValueError("HF_API_KEY not found in environment variables")
     
-    # Get API key
     deepseek_api_key = get_clean_env_var("DEEPSEEK_API_KEY")
     if not deepseek_api_key:
         raise ValueError("DEEPSEEK_API_KEY not found in environment variables")
