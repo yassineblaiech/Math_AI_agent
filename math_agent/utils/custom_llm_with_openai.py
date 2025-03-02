@@ -1,10 +1,21 @@
-from langchain.chat_models import ChatOpenAI
+from openai import OpenAI
+import os
+
+def get_clean_env_var(var_name: str) -> str:
+    if var := os.getenv(var_name):
+        return var.strip(' \ufeff')
+    for key, value in os.environ.items():
+        if key.strip(' \ufeff') == var_name:
+            return value.strip(' \ufeff')
+    return None
 
 def llm_agent():
-    
-    llm = ChatOpenAI(
-        openai_api_key="EMPTY",
-        openai_api_base="http://localhost:8000/v1",
-        model_name="mistralai/Mistral-7B-Instruct-v0.1"
+    deepseek_api_key = get_clean_env_var("DEEPSEEK_API_KEY")
+    if not deepseek_api_key:
+        raise ValueError("DEEPSEEK_API_KEY not found in environment variables")
+        
+    client = OpenAI(
+        api_key=deepseek_api_key,
+        base_url="https://api.deepseek.com"
     )
-    return llm
+    return client

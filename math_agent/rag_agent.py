@@ -4,13 +4,15 @@ import json
 from typing import Dict, List, Optional
 from .monitoring import MathAgentMonitor
 import time
+import os
+from openai import OpenAI
 
 # Configure logging
 logger = logging.getLogger('math_agent.rag')
 
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from .retriever import MathRetriever
 from .validation import MathValidator
 
@@ -50,8 +52,16 @@ FOLLOWUP_PROMPT = """Based on the previous answer, would you like me to:
 4. Provide related theorems or proofs"""
 
 class MathRAGAgent:
-    def __init__(self, retriever: MathRetriever, model_url: str = "http://localhost:8000"):
+    def __init__(self, retriever: MathRetriever, model_url: str = "https://api.deepseek.com"):
         self.retriever = retriever
+        deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+        if not deepseek_api_key:
+            raise ValueError("DEEPSEEK_API_KEY not found in environment variables")
+        
+        self.client = OpenAI(
+            api_key=deepseek_api_key,
+            base_url=model_url
+        )
         self.llm = ChatOpenAI(
             openai_api_base=model_url,
             model_name="mistralai/Mistral-7B-Instruct-v0.1",

@@ -1,12 +1,18 @@
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader, PyPDFLoader  # Updated import
-from langchain_community.embeddings import HuggingFaceEmbeddings      # Updated import
+from langchain_huggingface import HuggingFaceEmbeddings  # Update this import
 from langchain_community.vectorstores import FAISS                    # Updated import
 from sympy.parsing.latex import parse_latex
 from sympy import latex
-from typing import List, Dict
+from typing import List, Dict, Any, Optional
 import re
 import os
+import logging
+from langchain.schema import Document
+
+logging.getLogger('faiss').setLevel(logging.ERROR)  # Suppress FAISS GPU warning
+
+logger = logging.getLogger(__name__)
 
 class MathFormulaExtractor:
     @staticmethod
@@ -23,7 +29,8 @@ class MathFormulaExtractor:
         try:
             expr = parse_latex(latex_str)
             return True
-        except:
+        except Exception as e:
+            logger.debug(f"Failed to parse LaTeX formula: {latex_str}. Error: {str(e)}")
             return False
 
 class MathDocumentPreprocessor:
@@ -48,11 +55,19 @@ class MathDocumentPreprocessor:
         }
 
 class MathCorpusProcessor:
-    def __init__(self, data_dir: str):
+    def __init__(self, data_dir: str, hf_api_key: str):
         self.data_dir = data_dir
+        if not os.path.exists(data_dir):
+            logger.info(f"Creating directory: {data_dir}")
+            os.makedirs(data_dir)
+        
+        # Modified embeddings initialization to include the token
         self.embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-mpnet-base-v2",
-            model_kwargs={"device": "cpu"},  # Force CPU usage
+            model_kwargs={
+                "device": "cpu",  # Force CPU usage
+                "token": hf_api_key  # Add the token here
+            },
             encode_kwargs={"device": "cpu"}   # Force CPU usage for encoding
         )
         self.preprocessor = MathDocumentPreprocessor()
@@ -71,7 +86,8 @@ class MathCorpusProcessor:
             length_function=len
         )
     
-    def process_document(self, file_path: str) -> List[Dict]:
+
+    def process_document(self, file_path: str) -> List[Document]:
         """Process a single document with math-specific handling."""
         try:
             if file_path.endswith('.pdf'):
@@ -82,34 +98,55 @@ class MathCorpusProcessor:
                 logger.warning(f"Unsupported file type: {file_path}")
                 return []
                 
-            documents = loader.load()
+            try:
+                documents = loader.load()
+            except Exception as e:
+                logger.error(f"Failed to load document {file_path}: {str(e)}")
+                return []
+                
             processed_docs = []
-            
             for doc in documents:
-                processed = self.preprocessor.preprocess_text(doc.page_content)
-                doc.page_content = processed["text"]
-                doc.metadata.update(processed["metadata"])
-                processed_docs.append(doc)
+                try:
+                    processed = self.preprocessor.preprocess_text(doc.page_content)
+                    doc.page_content = processed["text"]
+                    doc.metadata.update(processed["metadata"])
+                    processed_docs.append(doc)
+                except Exception as e:
+                    logger.error(f"Failed to process document content: {str(e)}")
+                    continue
             
             text_splitter = self.create_math_splitter()
             split_docs = text_splitter.split_documents(processed_docs)
-            return split_docs  # Return list of documents instead of FAISS object
+            return split_docs
                 
         except Exception as e:
             logger.error(f"Error processing document {file_path}: {str(e)}")
             return []
         
-    def process_documents(self):
+    def process_documents(self) -> Optional[FAISS]:
         """Process all documents in the data directory."""
         all_documents = []
         
-        for file in os.listdir(self.data_dir):
-            file_path = os.path.join(self.data_dir, file)
-            documents = self.process_document(file_path)
-            all_documents.extend(documents)
-        
-        # Remove metadata_keys parameter as it's not supported
-        return FAISS.from_documents(
-            all_documents,
-            self.embeddings
-        )
+        try:
+            files = os.listdir(self.data_dir)
+            if not files:
+                logger.warning(f"No documents found in {self.data_dir}")
+                return None
+                
+            for file in files:
+                file_path = os.path.join(self.data_dir, file)
+                documents = self.process_document(file_path)
+                all_documents.extend(documents)
+                
+            if not all_documents:
+                logger.warning("No documents were successfully processed")
+                return None
+                
+            # Remove metadata_keys parameter as it's not supported
+            return FAISS.from_documents(
+                all_documents,
+                self.embeddings
+            )
+        except Exception as e:
+            logger.error(f"Error processing documents: {str(e)}")
+            raise
