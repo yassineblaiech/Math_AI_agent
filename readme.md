@@ -90,10 +90,11 @@ Example `.env` configuration:
 ```ini
 DEEPSEEK_API_KEY=your_deepseek_api_key
 HF_API_KEY=your_huggingface_api_key
-MODEL_PATH=deepseek-ai/deepseek-math-7b-r
-EMBEDDING_MODEL=sentence-transformers/all-mpnet-base-v2
-FAISS_INDEX_PATH=./data/faiss_index
-BM25_INDEX_PATH=./data/bm25_index
+```
+
+⚠️ **IMPORTANT:** Add .env to your Environment variables with the name RAGENVPATH. This step is crucial for the application to function properly.
+```ini
+RAGENVPATH=path_to_your_.env_file
 ```
 
 5. **Verify Installation**
