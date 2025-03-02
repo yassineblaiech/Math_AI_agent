@@ -120,14 +120,16 @@ uvicorn math_agent.test_fastapi:app --reload --host 0.0.0.0 --port 8000
 
 ## Usage Examples
 
-### Basic Query
+### Method 1: Direct Agent Interaction
+
+#### Basic Query
 ```python
 from math_agent.ask_rag_agent import rag_agent
 
 response, sources = rag_agent("Explain Euler's formula with examples")
 ```
 
-### Sample Response Structure:
+#### Sample Response Structure:
 ```json
 {
     "definition": "Fundamental relationship between trigonometric functions...",
@@ -139,6 +141,47 @@ response, sources = rag_agent("Explain Euler's formula with examples")
     "sources": ["advanced_calculus.pdf", "complex_analysis.md"]
 }
 ```
+
+### Method 2: Command Line Interface
+
+Use the CLI for quick mathematical queries directly from your terminal:
+
+```bash
+python -m math_agent.ask_rag_agent "What is the quadratic formula?"
+```
+
+#### Sample Terminal Output:
+```
+2025-03-02 01:23:23,003 - httpx - INFO - HTTP Request: POST https://api.deepseek.com/chat/completions "HTTP/1.1 200 OK"
+Generated search query: "Quadratic formula"
+Found 10 search results
+Loaded document: Quadratic formula
+Loaded document: Quadratic equation
+Loaded document: Solution in radicals
+
+Question: What is the quadratic formula?
+
+Answer: ### Quadratic Formula: Complete Explanation
+
+**1. Definition/Overview**
+The quadratic formula provides the solutions to any quadratic equation of the form
+$$ax^2 + bx + c = 0 \quad (a \neq 0).$$
+
+**2. Mathematical Formula**
+$$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+
+**3. Step-by-Step Derivation**
+1. Start with standard form: $ax^2 + bx + c = 0$
+2. Divide by $a$ (≠ 0): $x^2 + \frac{b}{a}x + \frac{c}{a} = 0$
+3. Complete the square...
+[...output truncated for brevity...]
+```
+
+This method is particularly useful for:
+- Quick mathematical lookups
+- Terminal-based workflows
+- Scripting and automation
+- Teaching and demonstration purposes
 
 ## API Endpoints
 
@@ -175,4 +218,4 @@ curl -X POST "http://localhost:8000/ask" \
 3. Commit changes (git commit -am 'Add new feature')
 4. Push to branch (git push origin feature/improvement)
 5. Open Pull Request
-````
+`````
